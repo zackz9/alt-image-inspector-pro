@@ -1,4 +1,3 @@
-
 // URL processing status
 export type ProcessingStatus = "pending" | "processing" | "completed" | "failed";
 
@@ -9,7 +8,7 @@ export type AltStatus = "present" | "missing" | "empty";
 export interface ImageResult {
   id: string;
   pageUrl: string;
-  pageId: string; // Adding pageId for grouping
+  pageId: number; // Changed from string to number
   imageSrc: string;
   altText: string | null;
   status: AltStatus;

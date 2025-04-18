@@ -50,7 +50,7 @@ const Index = () => {
     setResults([]);
     
     try {
-      const initialResults = urls.map(url => ({
+      const initialResults = urls.map((url, index) => ({
         url,
         id: uuidv4(),
         status: 'pending' as const,
@@ -58,6 +58,7 @@ const Index = () => {
         missingAltCount: 0,
         emptyAltCount: 0,
         images: [],
+        pageId: index + 1,
       }));
       
       setResults(initialResults);
@@ -96,6 +97,16 @@ const Index = () => {
         }
       }
       
+      // Trigger automatic CSV download for images without alt text
+      const allImages = results
+        .filter(r => r.status === 'completed')
+        .flatMap(r => r.images)
+        .filter(img => img.status === 'missing');
+
+      if (allImages.length > 0) {
+        exportToCsv(allImages, 'missing');
+      }
+      
       toast.success(`Scan completed: ${urls.length} URLs processed`);
     } catch (error) {
       console.error('Error during scan:', error);
@@ -105,7 +116,7 @@ const Index = () => {
     }
   };
   
-  const handleExport = () => {
+  const handleExport = (status: AltStatus | 'all' = 'all') => {
     const allImages = results
       .filter(r => r.status === 'completed')
       .flatMap(r => r.images);
@@ -116,7 +127,7 @@ const Index = () => {
     }
     
     try {
-      exportToCsv(allImages);
+      exportToCsv(allImages, status);
       toast.success('Export completed successfully');
     } catch (error) {
       console.error('Export error:', error);

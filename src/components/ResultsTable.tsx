@@ -1,16 +1,16 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageResult, ImageResult, AltStatus } from '@/types';
 import StatusBadge from './StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Download, ChevronDown, ChevronUp, Search, ExternalLink } from 'lucide-react';
+import { Download, Search, ExternalLink } from 'lucide-react';
 import { exportToCsv } from '@/utils/csvUtils';
 
 interface ResultsTableProps {
   results: PageResult[];
-  onExport: () => void;
+  onExport: (status: AltStatus | 'all') => void;
 }
 
 const ResultsTable: React.FC<ResultsTableProps> = ({ results, onExport }) => {
@@ -19,6 +19,7 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results, onExport }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<AltStatus | 'all'>('all');
   const itemsPerPage = 10;
+  const [selectedStatus, setSelectedStatus] = useState<AltStatus | 'all'>('all');
 
   // Flatten all image results for display
   const allImageResults = results.flatMap(result => 
@@ -76,29 +77,25 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results, onExport }) => {
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
-                setCurrentPage(1); // Reset to first page on search
+                setCurrentPage(1);
               }}
             />
           </div>
           
-          <select
-            className="h-10 rounded-md border border-input bg-background px-3 py-2"
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value as AltStatus | 'all');
-              setCurrentPage(1); // Reset to first page on filter change
-            }}
-          >
-            <option value="all">All Status</option>
-            <option value="present">Present</option>
-            <option value="missing">Missing</option>
-            <option value="empty">Empty</option>
-          </select>
-          
-          <Button onClick={onExport} variant="outline">
-            <Download className="mr-2 h-4 w-4" />
-            Export CSV
-          </Button>
+          <Select value={selectedStatus} onValueChange={(value: AltStatus | 'all') => {
+            setSelectedStatus(value);
+            onExport(value);
+          }}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="missing">Missing</SelectItem>
+              <SelectItem value="present">Present</SelectItem>
+              <SelectItem value="empty">Empty</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
