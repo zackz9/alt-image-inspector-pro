@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -25,7 +24,6 @@ const Index = () => {
     emptyAltImages: 0,
   });
   
-  // Calculate and update stats whenever results change
   useEffect(() => {
     if (results.length === 0) return;
     
@@ -52,7 +50,6 @@ const Index = () => {
     setResults([]);
     
     try {
-      // Initialize with empty results
       const initialResults = urls.map(url => ({
         url,
         id: uuidv4(),
@@ -65,7 +62,6 @@ const Index = () => {
       
       setResults(initialResults);
       
-      // Process URLs with progress updates
       const onProgress = (updatedResult: PageResult) => {
         setResults(prevResults => {
           const newResults = [...prevResults];
@@ -80,10 +76,8 @@ const Index = () => {
       for (let i = 0; i < urls.length; i++) {
         const url = urls[i];
         try {
-          // Utiliser la fonction de scraping pour récupérer les vrais attributs alt
           await scrapeUrls([url], onProgress);
           
-          // Add delay between requests (except for the last one)
           if (i < urls.length - 1) {
             await addDelay(1500);
           }
@@ -102,7 +96,6 @@ const Index = () => {
         }
       }
       
-      // Show completion toast
       toast.success(`Scan completed: ${urls.length} URLs processed`);
     } catch (error) {
       console.error('Error during scan:', error);
@@ -112,9 +105,7 @@ const Index = () => {
     }
   };
   
-  // Handle export of all results
   const handleExport = () => {
-    // Flatten all image results
     const allImages = results
       .filter(r => r.status === 'completed')
       .flatMap(r => r.images);
@@ -143,7 +134,6 @@ const Index = () => {
       </header>
       
       <div className="grid gap-8">
-        {/* URL Input Section */}
         <Card>
           <CardHeader>
             <CardTitle>Input URLs</CardTitle>
@@ -156,8 +146,7 @@ const Index = () => {
           </CardContent>
         </Card>
         
-        {/* CORS Warning */}
-        <Alert variant="warning" className="bg-yellow-50 border-yellow-200">
+        <Alert variant="destructive" className="bg-yellow-50 border-yellow-200">
           <AlertCircle className="h-4 w-4 text-yellow-600" />
           <AlertTitle className="text-yellow-800">Limitations CORS</AlertTitle>
           <AlertDescription className="text-yellow-700">
@@ -165,7 +154,6 @@ const Index = () => {
           </AlertDescription>
         </Alert>
         
-        {/* Progress and Statistics Section */}
         {results.length > 0 && (
           <Card>
             <CardHeader>
@@ -223,7 +211,6 @@ const Index = () => {
           </Card>
         )}
         
-        {/* Results Table Section */}
         {results.length > 0 && (
           <Card>
             <CardContent className="pt-6">
