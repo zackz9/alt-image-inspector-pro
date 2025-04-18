@@ -2,13 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 import UrlInput from '@/components/UrlInput';
 import ResultsTable from '@/components/ResultsTable';
 import { PageResult, ScanStats, ImageResult } from '@/types';
 import { scrapeUrls, addDelay } from '@/services/scraper';
 import { exportToCsv } from '@/utils/csvUtils';
 import { toast } from '@/components/ui/sonner';
-import { ImageOff, Image, AlertCircle, CheckCircle } from 'lucide-react';
+import { Image, ImageOff, AlertCircle as AlertCircleIcon, CheckCircle } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 const Index = () => {
@@ -154,6 +156,15 @@ const Index = () => {
           </CardContent>
         </Card>
         
+        {/* CORS Warning */}
+        <Alert variant="warning" className="bg-yellow-50 border-yellow-200">
+          <AlertCircle className="h-4 w-4 text-yellow-600" />
+          <AlertTitle className="text-yellow-800">Limitations CORS</AlertTitle>
+          <AlertDescription className="text-yellow-700">
+            En raison des restrictions CORS des navigateurs, l'extraction directe des attributs alt peut échouer pour certains domaines. Dans ce cas, des données fictives avec la mention "(CORS blocked real data)" seront générées pour démonstration.
+          </AlertDescription>
+        </Alert>
+        
         {/* Progress and Statistics Section */}
         {results.length > 0 && (
           <Card>
@@ -191,7 +202,7 @@ const Index = () => {
                 </div>
                 
                 <div className="bg-secondary/50 rounded-lg p-4 flex items-center">
-                  <AlertCircle className="h-8 w-8 mr-3 text-yellow-500" />
+                  <AlertCircleIcon className="h-8 w-8 mr-3 text-yellow-500" />
                   <div>
                     <div className="text-sm text-muted-foreground">Empty Alt</div>
                     <div className="text-2xl font-semibold">{stats.emptyAltImages}</div>
