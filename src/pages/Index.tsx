@@ -53,7 +53,7 @@ const Index = () => {
       // Initialize with empty results
       const initialResults = urls.map(url => ({
         url,
-        id: uuidv4(), // Add the missing id field
+        id: uuidv4(),
         status: 'pending' as const,
         imagesCount: 0,
         missingAltCount: 0,
@@ -78,7 +78,7 @@ const Index = () => {
       for (let i = 0; i < urls.length; i++) {
         const url = urls[i];
         try {
-          // Scrape individual URL
+          // Utiliser la fonction de scraping pour récupérer les vrais attributs alt
           await scrapeUrls([url], onProgress);
           
           // Add delay between requests (except for the last one)
@@ -89,7 +89,7 @@ const Index = () => {
           console.error(`Error processing ${url}:`, error);
           onProgress({
             url,
-            id: uuidv4(), // Add the missing id field
+            id: uuidv4(),
             status: 'failed',
             imagesCount: 0,
             missingAltCount: 0,
