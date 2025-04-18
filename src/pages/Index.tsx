@@ -9,6 +9,7 @@ import { scrapeUrls, addDelay } from '@/services/scraper';
 import { exportToCsv } from '@/utils/csvUtils';
 import { toast } from '@/components/ui/sonner';
 import { ImageOff, Image, AlertCircle, CheckCircle } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
 
 const Index = () => {
   const [results, setResults] = useState<PageResult[]>([]);
@@ -52,6 +53,7 @@ const Index = () => {
       // Initialize with empty results
       const initialResults = urls.map(url => ({
         url,
+        id: uuidv4(), // Add the missing id field
         status: 'pending' as const,
         imagesCount: 0,
         missingAltCount: 0,
@@ -87,6 +89,7 @@ const Index = () => {
           console.error(`Error processing ${url}:`, error);
           onProgress({
             url,
+            id: uuidv4(), // Add the missing id field
             status: 'failed',
             imagesCount: 0,
             missingAltCount: 0,
