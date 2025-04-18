@@ -14,19 +14,50 @@ const escapeCSV = (value: string | null): string => {
 };
 
 /**
- * Converts an array of image results to a CSV string
+ * Converts an array of image results to a CSV string with one line per page
  */
 export const generateCsv = (results: ImageResult[]): string => {
   // CSV header
-  const header = ['Page URL', 'Image Source', 'Alt Text', 'Status'];
+  const header = ['Page ID', 'Page URL', 'Image Source', 'Alt Text', 'Status'];
   
-  // Map results to CSV rows
-  const rows = results.map(result => [
-    escapeCSV(result.pageUrl),
-    escapeCSV(result.imageSrc),
-    escapeCSV(result.altText),
-    escapeCSV(result.status)
-  ]);
+  // Group results by pageId
+  const groupedResults = results.reduce((acc, image) => {
+    const pageId = image.pageId || image.pageUrl.split('//')[1].split('/')[0];
+    
+    if (!acc[pageId]) {
+      acc[pageId] = {
+        pageId,
+        pageUrl: image.pageUrl,
+        images: []
+      };
+    }
+    
+    acc[pageId].images.push(image);
+    return acc;
+  }, {} as Record<string, { pageId: string, pageUrl: string, images: ImageResult[] }>);
+  
+  // Map grouped results to CSV rows
+  const rows: string[][] = [];
+  
+  Object.values(groupedResults).forEach(group => {
+    // For each page, create one row
+    group.images.forEach((image, index) => {
+      // Only include page ID and URL on the first image row for this page
+      const pageIdCell = index === 0 ? escapeCSV(group.pageId) : '';
+      const pageUrlCell = index === 0 ? escapeCSV(group.pageUrl) : '';
+      
+      rows.push([
+        pageIdCell,
+        pageUrlCell,
+        escapeCSV(image.imageSrc),
+        escapeCSV(image.altText),
+        escapeCSV(image.status)
+      ]);
+    });
+    
+    // Add an empty row for better readability between pages
+    rows.push(['', '', '', '', '']);
+  });
   
   // Combine header and rows
   return [

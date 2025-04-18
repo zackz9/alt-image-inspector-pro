@@ -10,9 +10,13 @@ export const scrapeUrls = async (
   const results: PageResult[] = [];
   
   for (const url of urls) {
+    const pageId = url.split('//')[1].split('/')[0]; // Extract domain as page ID
+    const pageUuid = uuidv4(); // Unique ID for the page
+    
     // Create initial pending status
     const initialResult: PageResult = {
       url,
+      id: pageUuid,
       status: 'pending',
       imagesCount: 0,
       missingAltCount: 0,
@@ -32,7 +36,7 @@ export const scrapeUrls = async (
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       // Generate random mock data for the page
-      const images = generateMockImageResults(url);
+      const images = generateMockImageResults(url, pageId, pageUuid);
       const missingAltCount = images.filter(img => img.status === 'missing').length;
       const emptyAltCount = images.filter(img => img.status === 'empty').length;
       
@@ -55,8 +59,8 @@ export const scrapeUrls = async (
   return results;
 };
 
-// Helper to generate mock image results for demo purposes
-const generateMockImageResults = (url: string): ImageResult[] => {
+// Helper to generate mock image results with more realistic alt text
+const generateMockImageResults = (url: string, pageId: string, pageUuid: string): ImageResult[] => {
   // Deterministic random number generator based on URL
   const getRandomInt = (max: number): number => {
     let hash = 0;
@@ -71,15 +75,32 @@ const generateMockImageResults = (url: string): ImageResult[] => {
   const count = getRandomInt(19) + 1;
   const results: ImageResult[] = [];
   
+  // Image type categories for more realistic alt text
+  const imageTypes = [
+    'Product photo', 'Banner', 'Hero image', 'Icon', 'Logo', 
+    'Infographic', 'Gallery photo', 'Profile picture', 'Background image'
+  ];
+  
+  // Product or content categories
+  const categories = [
+    'skincare', 'cosmetics', 'treatment', 'moisturizer', 
+    'serum', 'sunscreen', 'cleanser', 'toner'
+  ];
+  
   for (let i = 0; i < count; i++) {
     const statusRand = getRandomInt(10);
     let status: AltStatus;
     let altText: string | null;
     
+    // Select random image type and category for more varied alt text
+    const imageType = imageTypes[getRandomInt(imageTypes.length)];
+    const category = categories[getRandomInt(categories.length)];
+    
     // Distribute statuses: 60% present, 30% missing, 10% empty
     if (statusRand < 6) {
       status = 'present';
-      altText = `Image description ${i + 1} for ${url.split('//')[1].split('/')[0]}`;
+      // More realistic alt text with variation
+      altText = `${imageType} of ${category} ${getRandomInt(100) + 1} for ${pageId}`;
     } else if (statusRand < 9) {
       status = 'missing';
       altText = null;
@@ -88,10 +109,21 @@ const generateMockImageResults = (url: string): ImageResult[] => {
       altText = '';
     }
     
+    // Create image path parts for more realistic image sources
+    const pathParts = [
+      'images', 'assets', 'media', 'uploads', 'content',
+      category, 'products', 'banners', 'gallery'
+    ];
+    const randomPath = pathParts[getRandomInt(pathParts.length)];
+    
+    // Create more realistic image filename
+    const filename = `${category}-${getRandomInt(999)}-${i + 1}.jpg`;
+    
     results.push({
       id: uuidv4(),
       pageUrl: url,
-      imageSrc: `${url}${url.endsWith('/') ? '' : '/'}image-${i + 1}.jpg`,
+      pageId: pageUuid, // Use the page's UUID as pageId
+      imageSrc: `${url}${url.endsWith('/') ? '' : '/'}${randomPath}/${filename}`,
       altText,
       status
     });

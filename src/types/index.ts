@@ -9,6 +9,7 @@ export type AltStatus = "present" | "missing" | "empty";
 export interface ImageResult {
   id: string;
   pageUrl: string;
+  pageId: string; // Adding pageId for grouping
   imageSrc: string;
   altText: string | null;
   status: AltStatus;
@@ -17,6 +18,7 @@ export interface ImageResult {
 // Page processing result
 export interface PageResult {
   url: string;
+  id: string; // Adding unique page ID
   status: ProcessingStatus;
   imagesCount: number;
   missingAltCount: number;
