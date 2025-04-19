@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -5,7 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import UrlInput from '@/components/UrlInput';
 import ResultsTable from '@/components/ResultsTable';
-import { PageResult, ScanStats, ImageResult } from '@/types';
+import { PageResult, ScanStats, ImageResult, AltStatus } from '@/types';
 import { scrapeUrls, addDelay } from '@/services/scraper';
 import { exportToCsv } from '@/utils/csvUtils';
 import { toast } from '@/components/ui/sonner';

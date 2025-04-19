@@ -1,4 +1,3 @@
-
 import { PageResult, ImageResult, AltStatus, ProcessingStatus } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -46,11 +45,22 @@ const fetchRealAltTexts = async (url: string): Promise<ImageResult[]> => {
           : `${url}${url.endsWith('/') ? '' : '/'}${src}`;
       }
       
+      // Extract domain for pageId, but convert to a numeric value
+      const domainString = url.replace(/^https?:\/\//, '').split('/')[0];
+      // Create a simple numeric hash from the domain string
+      let pageIdNumeric = 0;
+      for (let i = 0; i < domainString.length; i++) {
+        pageIdNumeric = ((pageIdNumeric << 5) - pageIdNumeric) + domainString.charCodeAt(i);
+        pageIdNumeric |= 0; // Convert to 32bit integer
+      }
+      // Ensure positive number
+      pageIdNumeric = Math.abs(pageIdNumeric);
+      
       // Ajouter l'image au résultat
       results.push({
         id: uuidv4(),
         pageUrl: url,
-        pageId: url.replace(/^https?:\/\//, '').split('/')[0], // Extraire le domaine comme ID de page
+        pageId: pageIdNumeric,
         imageSrc: fullSrc,
         altText,
         status
@@ -122,7 +132,7 @@ export const scrapeUrls = async (
 };
 
 // Fonction pour générer des données de démonstration plus réalistes
-const generateMockImageResults = (url: string, pageId: string, isCorsError: boolean = false): ImageResult[] => {
+const generateMockImageResults = (url: string, pageIdStr: string, isCorsError: boolean = false): ImageResult[] => {
   // Générateur de nombres aléatoires basé sur l'URL
   const getRandomInt = (max: number): number => {
     let hash = 0;
@@ -132,6 +142,14 @@ const generateMockImageResults = (url: string, pageId: string, isCorsError: bool
     }
     return Math.abs(hash % max);
   };
+  
+  // Convert pageIdStr to a numeric value
+  let pageId = 0;
+  for (let i = 0; i < pageIdStr.length; i++) {
+    pageId = ((pageId << 5) - pageId) + pageIdStr.charCodeAt(i);
+    pageId |= 0;
+  }
+  pageId = Math.abs(pageId);
   
   // Générer entre 3 et 12 images
   const count = getRandomInt(9) + 3;
