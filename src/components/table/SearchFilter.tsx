@@ -20,13 +20,13 @@ const SearchFilter: React.FC<SearchFilterProps> = ({
 }) => {
   return (
     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-      <h2 className="text-lg font-semibold">Scan Results</h2>
+      <h2 className="text-lg font-semibold">Résultats de l'analyse</h2>
       
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search results..."
+            placeholder="Rechercher..."
             className="pl-8 w-full sm:w-[250px]"
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
@@ -35,13 +35,13 @@ const SearchFilter: React.FC<SearchFilterProps> = ({
         
         <Select value={selectedStatus} onValueChange={onStatusChange}>
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Select status" />
+            <SelectValue placeholder="Sélectionner statut" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="missing">Missing</SelectItem>
-            <SelectItem value="present">Present</SelectItem>
-            <SelectItem value="empty">Empty</SelectItem>
+            <SelectItem value="all">Tous les statuts</SelectItem>
+            <SelectItem value="missing">Manquant</SelectItem>
+            <SelectItem value="empty">Vide</SelectItem>
+            <SelectItem value="present">Présent</SelectItem>
           </SelectContent>
         </Select>
       </div>

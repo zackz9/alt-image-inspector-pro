@@ -10,6 +10,11 @@ interface ResultRowProps {
 }
 
 const ResultRow: React.FC<ResultRowProps> = ({ image }) => {
+  // Extraire le domaine et le chemin pour un affichage plus propre
+  const urlObject = new URL(image.pageUrl);
+  const domain = urlObject.hostname;
+  const path = urlObject.pathname;
+  
   return (
     <TableRow>
       <TableCell className="font-mono text-xs break-all">
@@ -20,7 +25,7 @@ const ResultRow: React.FC<ResultRowProps> = ({ image }) => {
             rel="noopener noreferrer"
             className="text-blue-500 hover:underline flex items-center"
           >
-            {image.pageUrl.substring(0, 50)}{image.pageUrl.length > 50 ? '...' : ''}
+            {domain}{path.substring(0, 30)}{path.length > 30 ? '...' : ''}
             <ExternalLink className="ml-1 h-3 w-3" />
           </a>
         </div>
@@ -31,7 +36,7 @@ const ResultRow: React.FC<ResultRowProps> = ({ image }) => {
       <TableCell className="font-mono text-xs">
         {image.altText || 
           <span className="text-muted-foreground italic">
-            {image.status === 'missing' ? 'No alt attribute' : 'Empty alt attribute'}
+            {image.status === 'missing' ? 'Pas d\'attribut alt' : 'Attribut alt vide'}
           </span>
         }
       </TableCell>

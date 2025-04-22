@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageResult, ImageResult, AltStatus } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import SearchFilter from './table/SearchFilter';
@@ -18,19 +18,37 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results, onExport }) => {
   const itemsPerPage = 10;
   const [selectedStatus, setSelectedStatus] = useState<AltStatus | 'all'>('all');
 
-  // Flatten all image results for display
+  // Initialiser le filtre pour n'afficher que les images sans alt ou avec alt vide
+  useEffect(() => {
+    setStatusFilter('missing');
+    setSelectedStatus('missing');
+  }, []);
+
+  // Aplatir tous les résultats d'images pour l'affichage
   const allImageResults = results.flatMap(result => 
     result.images.map(img => ({ ...img, pageStatus: result.status }))
   );
 
-  // Apply search and filters
-  const filteredResults = allImageResults.filter(img => {
+  // Éliminer les doublons basés sur URL de page et URL d'image
+  const uniqueResults = allImageResults.filter((img, index, self) => 
+    index === self.findIndex(t => (
+      t.pageUrl === img.pageUrl && t.imageSrc === img.imageSrc
+    ))
+  );
+
+  // Appliquer la recherche et les filtres
+  const filteredResults = uniqueResults.filter(img => {
     const matchesSearch = 
       img.pageUrl.toLowerCase().includes(searchTerm.toLowerCase()) || 
       img.imageSrc.toLowerCase().includes(searchTerm.toLowerCase()) || 
       (img.altText && img.altText.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    return matchesSearch && (statusFilter === 'all' || img.status === statusFilter);
+    const matchesStatusFilter = statusFilter === 'all' || img.status === statusFilter;
+    
+    // Filtrer pour ne montrer que les images sans alt ou alt vide
+    const isRelevant = img.status === 'missing' || img.status === 'empty';
+    
+    return matchesSearch && matchesStatusFilter && (statusFilter !== 'all' || isRelevant);
   });
 
   // Pagination
@@ -51,6 +69,8 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results, onExport }) => {
 
   const handleStatusChange = (value: AltStatus | 'all') => {
     setSelectedStatus(value);
+    setStatusFilter(value);
+    setCurrentPage(1);
     onExport(value);
   };
 
@@ -67,9 +87,9 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results, onExport }) => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[40%]">Page URL / Image</TableHead>
-              <TableHead className="w-[40%]">Alt Text</TableHead>
-              <TableHead className="w-[20%]">Status</TableHead>
+              <TableHead className="w-[40%]">URL de page / Image</TableHead>
+              <TableHead className="w-[40%]">Texte Alt</TableHead>
+              <TableHead className="w-[20%]">Statut</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -80,7 +100,7 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results, onExport }) => {
             ) : (
               <TableRow>
                 <TableCell colSpan={3} className="text-center py-6 text-muted-foreground">
-                  No results match your search
+                  Aucun résultat ne correspond à votre recherche
                 </TableCell>
               </TableRow>
             )}
