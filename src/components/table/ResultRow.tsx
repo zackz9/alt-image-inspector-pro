@@ -11,9 +11,24 @@ interface ResultRowProps {
 
 const ResultRow: React.FC<ResultRowProps> = ({ image }) => {
   // Extraire le domaine et le chemin pour un affichage plus propre
-  const urlObject = new URL(image.pageUrl);
+  let urlObject;
+  try {
+    urlObject = new URL(image.pageUrl);
+  } catch (e) {
+    console.warn(`URL invalide: ${image.pageUrl}`, e);
+    urlObject = { hostname: 'url-invalide', pathname: '' };
+  }
+  
   const domain = urlObject.hostname;
-  const path = urlObject.pathname;
+  const path = urlObject.pathname || '';
+  
+  // Fonction pour tronquer proprement les URLs longues
+  const truncateText = (text: string, maxLength: number) => {
+    if (!text) return '';
+    return text.length > maxLength 
+      ? `${text.substring(0, maxLength)}...` 
+      : text;
+  };
   
   return (
     <TableRow>
@@ -25,12 +40,12 @@ const ResultRow: React.FC<ResultRowProps> = ({ image }) => {
             rel="noopener noreferrer"
             className="text-blue-500 hover:underline flex items-center"
           >
-            {domain}{path.substring(0, 30)}{path.length > 30 ? '...' : ''}
+            {domain}{truncateText(path, 30)}
             <ExternalLink className="ml-1 h-3 w-3" />
           </a>
         </div>
         <div className="mt-1 text-muted-foreground break-all">
-          {image.imageSrc.substring(0, 50)}{image.imageSrc.length > 50 ? '...' : ''}
+          {truncateText(image.imageSrc, 50)}
         </div>
       </TableCell>
       <TableCell className="font-mono text-xs">

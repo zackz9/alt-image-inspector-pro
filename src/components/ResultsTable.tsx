@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { PageResult, ImageResult, AltStatus } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import SearchFilter from './table/SearchFilter';
@@ -14,49 +14,74 @@ interface ResultsTableProps {
 const ResultsTable: React.FC<ResultsTableProps> = ({ results, onExport }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<AltStatus | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<AltStatus | 'all'>('missing');
   const itemsPerPage = 10;
-  const [selectedStatus, setSelectedStatus] = useState<AltStatus | 'all'>('all');
+  const [selectedStatus, setSelectedStatus] = useState<AltStatus | 'all'>('missing');
 
-  // Initialiser le filtre pour n'afficher que les images sans alt ou avec alt vide
+  // Réinitialiser la pagination quand les filtres changent
   useEffect(() => {
-    setStatusFilter('missing');
-    setSelectedStatus('missing');
-  }, []);
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
 
-  // Aplatir tous les résultats d'images pour l'affichage
-  const allImageResults = results.flatMap(result => 
-    result.images.map(img => ({ ...img, pageStatus: result.status }))
-  );
+  // Calculer les résultats une seule fois avec useMemo pour optimiser les performances
+  const processedResults = useMemo(() => {
+    if (results.length === 0) return { filteredResults: [], paginatedResults: [] };
 
-  // Éliminer les doublons basés sur URL de page et URL d'image
-  const uniqueResults = allImageResults.filter((img, index, self) => 
-    index === self.findIndex(t => (
-      t.pageUrl === img.pageUrl && t.imageSrc === img.imageSrc
-    ))
-  );
-
-  // Appliquer la recherche et les filtres
-  const filteredResults = uniqueResults.filter(img => {
-    const matchesSearch = 
-      img.pageUrl.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      img.imageSrc.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      (img.altText && img.altText.toLowerCase().includes(searchTerm.toLowerCase()));
+    // Récupérer uniquement les résultats des pages complétées
+    const completedResults = results.filter(result => result.status === 'completed');
     
-    const matchesStatusFilter = statusFilter === 'all' || img.status === statusFilter;
-    
-    // Filtrer pour ne montrer que les images sans alt ou alt vide
-    const isRelevant = img.status === 'missing' || img.status === 'empty';
-    
-    return matchesSearch && matchesStatusFilter && (statusFilter !== 'all' || isRelevant);
-  });
+    // Aplatir tous les résultats d'images pour l'affichage
+    const allImageResults = completedResults.flatMap(result => 
+      result.images.map(img => ({ ...img }))
+    );
 
-  // Pagination
-  const totalPages = Math.ceil(filteredResults.length / itemsPerPage);
-  const paginatedResults = filteredResults.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+    // Éliminer les doublons basés sur URL de page et URL d'image (optimisé)
+    const seenItems = new Set<string>();
+    const uniqueResults = allImageResults.filter(img => {
+      const key = `${img.pageUrl}|${img.imageSrc}`;
+      if (seenItems.has(key)) return false;
+      seenItems.add(key);
+      return true;
+    });
+
+    // Filtrer pour ne montrer que les images avec problèmes d'alt par défaut
+    const relevantResults = uniqueResults.filter(img => 
+      statusFilter === 'all' || img.status === statusFilter
+    );
+
+    // Appliquer la recherche
+    const filteredResults = relevantResults.filter(img => {
+      if (!searchTerm) return true;
+      
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        img.pageUrl.toLowerCase().includes(searchLower) || 
+        img.imageSrc.toLowerCase().includes(searchLower) || 
+        (img.altText && img.altText.toLowerCase().includes(searchLower))
+      );
+    });
+
+    // Pagination
+    const totalPages = Math.ceil(filteredResults.length / itemsPerPage);
+    const safePage = Math.min(currentPage, Math.max(1, totalPages));
+    
+    // Si la page actuelle est invalide, on ajuste
+    if (safePage !== currentPage && filteredResults.length > 0) {
+      setCurrentPage(safePage);
+    }
+    
+    const paginatedResults = filteredResults.slice(
+      (safePage - 1) * itemsPerPage,
+      safePage * itemsPerPage
+    );
+
+    return { 
+      filteredResults, 
+      paginatedResults,
+      totalResults: filteredResults.length,
+      totalPages
+    };
+  }, [results, searchTerm, statusFilter, currentPage, itemsPerPage]);
 
   if (results.length === 0) {
     return null;
@@ -73,6 +98,10 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results, onExport }) => {
     setCurrentPage(1);
     onExport(value);
   };
+
+  const totalItems = processedResults.totalResults || 0;
+  const totalPages = processedResults.totalPages || 0;
+  const paginatedResults = processedResults.paginatedResults || [];
 
   return (
     <div className="space-y-4">
@@ -108,11 +137,18 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results, onExport }) => {
         </Table>
       </div>
 
-      <TablePagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={setCurrentPage}
-      />
+      {totalItems > 0 && (
+        <div className="flex justify-between items-center text-sm text-muted-foreground">
+          <div>
+            Total: {totalItems} résultat{totalItems > 1 ? 's' : ''}
+          </div>
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
+        </div>
+      )}
     </div>
   );
 };

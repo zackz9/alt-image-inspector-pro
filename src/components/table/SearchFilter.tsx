@@ -35,13 +35,13 @@ const SearchFilter: React.FC<SearchFilterProps> = ({
         
         <Select value={selectedStatus} onValueChange={onStatusChange}>
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Sélectionner statut" />
+            <SelectValue placeholder="Filtrer par statut" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tous les statuts</SelectItem>
-            <SelectItem value="missing">Manquant</SelectItem>
-            <SelectItem value="empty">Vide</SelectItem>
-            <SelectItem value="present">Présent</SelectItem>
+            <SelectItem value="missing">Alt manquant</SelectItem>
+            <SelectItem value="empty">Alt vide</SelectItem>
+            <SelectItem value="present">Alt présent</SelectItem>
           </SelectContent>
         </Select>
       </div>

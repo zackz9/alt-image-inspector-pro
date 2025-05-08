@@ -1,13 +1,13 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import UrlInput from '@/components/UrlInput';
 import ResultsTable from '@/components/ResultsTable';
-import { PageResult, ScanStats, ImageResult, AltStatus } from '@/types';
-import { scrapeUrls, addDelay } from '@/services/scraper';
+import { PageResult, ScanStats, AltStatus } from '@/types';
+import { scrapeUrls } from '@/services/scraper';
 import { exportToCsv } from '@/utils/csvUtils';
 import { toast } from '@/components/ui/sonner';
 import { Image, ImageOff, AlertCircle as AlertCircleIcon, CheckCircle } from 'lucide-react';
@@ -25,6 +25,7 @@ const Index = () => {
     emptyAltImages: 0,
   });
   
+  // Calculer les statistiques lorsque les résultats changent
   useEffect(() => {
     if (results.length === 0) return;
     
@@ -44,14 +45,33 @@ const Index = () => {
     });
   }, [results]);
   
+  // Utiliser useCallback pour éviter de recréer la fonction à chaque rendu
+  const handleProgress = useCallback((updatedResult: PageResult) => {
+    setResults(prevResults => {
+      const newResults = [...prevResults];
+      const index = newResults.findIndex(r => r.id === updatedResult.id);
+      if (index !== -1) {
+        newResults[index] = updatedResult;
+      }
+      return newResults;
+    });
+  }, []);
+  
   const handleStartScan = async (urls: string[]) => {
     if (urls.length === 0) return;
+    
+    // Limiter à 50 URLs maximum pour éviter de surcharger l'application
+    if (urls.length > 100) {
+      toast.warning(`Pour des raisons de performance, le scan est limité à 100 URLs. Seules les 100 premières seront analysées.`);
+      urls = urls.slice(0, 100);
+    }
     
     setIsProcessing(true);
     setResults([]);
     
     try {
-      const initialResults = urls.map((url, index) => ({
+      // Initialiser les résultats
+      const initialResults = urls.map((url) => ({
         url,
         id: uuidv4(),
         status: 'pending' as const,
@@ -59,59 +79,18 @@ const Index = () => {
         missingAltCount: 0,
         emptyAltCount: 0,
         images: [],
-        pageId: index + 1,
       }));
       
       setResults(initialResults);
       
-      const onProgress = (updatedResult: PageResult) => {
-        setResults(prevResults => {
-          const newResults = [...prevResults];
-          const index = newResults.findIndex(r => r.url === updatedResult.url);
-          if (index !== -1) {
-            newResults[index] = updatedResult;
-          }
-          return newResults;
-        });
-      };
+      // Lancer l'analyse
+      await scrapeUrls(urls, handleProgress);
       
-      for (let i = 0; i < urls.length; i++) {
-        const url = urls[i];
-        try {
-          await scrapeUrls([url], onProgress);
-          
-          if (i < urls.length - 1) {
-            await addDelay(1500);
-          }
-        } catch (error) {
-          console.error(`Error processing ${url}:`, error);
-          onProgress({
-            url,
-            id: uuidv4(),
-            status: 'failed',
-            imagesCount: 0,
-            missingAltCount: 0,
-            emptyAltCount: 0,
-            images: [],
-            error: error instanceof Error ? error.message : 'Unknown error',
-          });
-        }
-      }
-      
-      // Trigger automatic CSV download for images without alt text
-      const allImages = results
-        .filter(r => r.status === 'completed')
-        .flatMap(r => r.images)
-        .filter(img => img.status === 'missing');
-
-      if (allImages.length > 0) {
-        exportToCsv(allImages, 'missing');
-      }
-      
-      toast.success(`Scan completed: ${urls.length} URLs processed`);
+      // Scan terminé
+      toast.success(`Scan terminé: ${urls.length} URLs analysées`);
     } catch (error) {
       console.error('Error during scan:', error);
-      toast.error('An error occurred during the scan');
+      toast.error(`Une erreur est survenue pendant l'analyse: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     } finally {
       setIsProcessing(false);
     }
@@ -123,34 +102,36 @@ const Index = () => {
       .flatMap(r => r.images);
     
     if (allImages.length === 0) {
-      toast.error('No results to export');
+      toast.error('Aucun résultat à exporter');
       return;
     }
     
     try {
       exportToCsv(allImages, status);
-      toast.success('Export completed successfully');
+      toast.success('Export réussi');
     } catch (error) {
       console.error('Export error:', error);
-      toast.error('Failed to export results');
+      toast.error('Erreur lors de l\'export des résultats');
     }
   };
+  
+  const progress = stats.totalUrls === 0 ? 0 : (stats.processedUrls / stats.totalUrls) * 100;
   
   return (
     <div className="container mx-auto py-8 px-4 max-w-6xl">
       <header className="mb-8 text-center">
         <h1 className="text-3xl font-bold mb-2">Alt Image Inspector Pro</h1>
         <p className="text-muted-foreground">
-          Audit HTML image alt attributes across multiple web pages
+          Audit des attributs alt d'images sur plusieurs pages web
         </p>
       </header>
       
       <div className="grid gap-8">
         <Card>
           <CardHeader>
-            <CardTitle>Input URLs</CardTitle>
+            <CardTitle>URLs à analyser</CardTitle>
             <CardDescription>
-              Enter URLs to scan, one per line or upload a CSV/TXT file
+              Entrez les URLs à analyser, une par ligne ou téléchargez un fichier CSV/TXT
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -169,17 +150,17 @@ const Index = () => {
         {results.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Scan Progress</CardTitle>
+              <CardTitle>Progression de l'analyse</CardTitle>
               <CardDescription>
                 {isProcessing
-                  ? `Processing ${stats.processedUrls} of ${stats.totalUrls} URLs...`
-                  : `Scan complete: ${stats.processedUrls} URLs processed`}
+                  ? `Traitement ${stats.processedUrls} sur ${stats.totalUrls} URLs...`
+                  : `Analyse terminée: ${stats.processedUrls} URLs traitées`}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="mb-4">
                 <Progress 
-                  value={(stats.processedUrls / stats.totalUrls) * 100} 
+                  value={progress} 
                   className="h-2" 
                 />
               </div>
@@ -196,7 +177,7 @@ const Index = () => {
                 <div className="bg-secondary/50 rounded-lg p-4 flex items-center">
                   <ImageOff className="h-8 w-8 mr-3 text-red-500" />
                   <div>
-                    <div className="text-sm text-muted-foreground">Missing Alt</div>
+                    <div className="text-sm text-muted-foreground">Alt manquant</div>
                     <div className="text-2xl font-semibold">{stats.missingAltImages}</div>
                   </div>
                 </div>
@@ -204,7 +185,7 @@ const Index = () => {
                 <div className="bg-secondary/50 rounded-lg p-4 flex items-center">
                   <AlertCircleIcon className="h-8 w-8 mr-3 text-yellow-500" />
                   <div>
-                    <div className="text-sm text-muted-foreground">Empty Alt</div>
+                    <div className="text-sm text-muted-foreground">Alt vide</div>
                     <div className="text-2xl font-semibold">{stats.emptyAltImages}</div>
                   </div>
                 </div>
@@ -212,7 +193,7 @@ const Index = () => {
                 <div className="bg-secondary/50 rounded-lg p-4 flex items-center">
                   <CheckCircle className="h-8 w-8 mr-3 text-green-500" />
                   <div>
-                    <div className="text-sm text-muted-foreground">Valid Alt</div>
+                    <div className="text-sm text-muted-foreground">Alt valide</div>
                     <div className="text-2xl font-semibold">
                       {stats.totalImages - stats.missingAltImages - stats.emptyAltImages}
                     </div>
@@ -233,7 +214,7 @@ const Index = () => {
       </div>
       
       <footer className="mt-12 text-center text-sm text-muted-foreground">
-        <p>Alt Image Inspector Pro - A web accessibility tool</p>
+        <p>Alt Image Inspector Pro - Un outil d'accessibilité web</p>
       </footer>
     </div>
   );

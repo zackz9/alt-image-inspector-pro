@@ -1,20 +1,37 @@
 import { PageResult, ImageResult, AltStatus, ProcessingStatus } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 
+// Constantes pour réglages de performance
+const BATCH_SIZE = 5; // Nombre d'URLs à traiter simultanément
+const DELAY_BETWEEN_BATCHES = 1000; // Délai entre les lots en ms
+const REQUEST_TIMEOUT = 10000; // Timeout pour les requêtes en ms
+
+/**
+ * Récupère les attributs alt des images d'une page
+ */
 const fetchRealAltTexts = async (url: string): Promise<ImageResult[]> => {
   try {
+    console.log(`Fetching alt texts from ${url}`);
+    // Ajouter un timeout pour éviter les requêtes qui bloquent trop longtemps
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+    
     const response = await fetch(url, {
       mode: 'cors',
       headers: {
         'Accept': 'text/html',
-      }
+      },
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
     const html = await response.text();
     
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
     
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Courte pause pour éviter de surcharger le navigateur
+    await new Promise(resolve => setTimeout(resolve, 300));
     
     const imgElements = Array.from(doc.querySelectorAll('img, [style*="background-image"]'));
     const results: ImageResult[] = [];
@@ -47,10 +64,14 @@ const fetchRealAltTexts = async (url: string): Promise<ImageResult[]> => {
       
       let fullSrc = src;
       if (src && !src.startsWith('http')) {
-        const baseUrl = new URL(url);
-        fullSrc = src.startsWith('/') 
-          ? `${baseUrl.protocol}//${baseUrl.host}${src}`
-          : `${url}${url.endsWith('/') ? '' : '/'}${src}`;
+        try {
+          const baseUrl = new URL(url);
+          fullSrc = src.startsWith('/') 
+            ? `${baseUrl.protocol}//${baseUrl.host}${src}`
+            : `${url}${url.endsWith('/') ? '' : '/'}${src}`;
+        } catch (e) {
+          console.warn(`Erreur lors de la création d'URL pour ${src}`, e);
+        }
       }
       
       results.push({
@@ -63,6 +84,7 @@ const fetchRealAltTexts = async (url: string): Promise<ImageResult[]> => {
       });
     });
     
+    console.log(`Found ${results.length} images on ${url}`);
     return results;
   } catch (error) {
     console.error(`Erreur lors de l'extraction des attributs alt de ${url}:`, error);
@@ -70,54 +92,77 @@ const fetchRealAltTexts = async (url: string): Promise<ImageResult[]> => {
   }
 };
 
+/**
+ * Analyse les URLs par lots pour une meilleure performance
+ */
 export const scrapeUrls = async (
   urls: string[], 
   onProgress?: (result: PageResult) => void
 ): Promise<PageResult[]> => {
   const results: PageResult[] = [];
   
-  for (const url of urls) {
-    const pageUuid = uuidv4();
-    
-    const initialResult: PageResult = {
+  // Initialiser tous les résultats comme "en attente"
+  const initialResults = urls.map((url, index) => {
+    const pageResult: PageResult = {
       url,
-      id: pageUuid,
+      id: uuidv4(),
       status: 'pending',
       imagesCount: 0,
       missingAltCount: 0,
       emptyAltCount: 0,
-      images: []
+      images: [],
     };
+    results.push(pageResult);
+    onProgress?.(pageResult);
+    return pageResult;
+  });
+  
+  // Traitement par lots pour éviter de surcharger le navigateur
+  for (let i = 0; i < urls.length; i += BATCH_SIZE) {
+    const batch = urls.slice(i, i + BATCH_SIZE);
     
-    results.push(initialResult);
-    onProgress?.(initialResult);
+    // Traiter ce lot en parallèle
+    await Promise.all(batch.map(async (url) => {
+      const index = urls.indexOf(url);
+      const result = results[index];
+      
+      if (!result) return;
+      
+      try {
+        result.status = 'processing';
+        onProgress?.(result);
+        
+        const images = await fetchRealAltTexts(url);
+        
+        const missingAltCount = images.filter(img => img.status === 'missing').length;
+        const emptyAltCount = images.filter(img => img.status === 'empty').length;
+        
+        result.status = 'completed';
+        result.imagesCount = images.length;
+        result.missingAltCount = missingAltCount;
+        result.emptyAltCount = emptyAltCount;
+        result.images = images;
+        
+        onProgress?.(result);
+      } catch (error) {
+        result.status = 'failed';
+        result.error = error instanceof Error ? error.message : 'Erreur inconnue';
+        onProgress?.(result);
+      }
+    }));
     
-    try {
-      initialResult.status = 'processing';
-      onProgress?.(initialResult);
-      
-      const images = await fetchRealAltTexts(url);
-      
-      const missingAltCount = images.filter(img => img.status === 'missing').length;
-      const emptyAltCount = images.filter(img => img.status === 'empty').length;
-      
-      initialResult.status = 'completed';
-      initialResult.imagesCount = images.length;
-      initialResult.missingAltCount = missingAltCount;
-      initialResult.emptyAltCount = emptyAltCount;
-      initialResult.images = images;
-      
-      onProgress?.(initialResult);
-    } catch (error) {
-      initialResult.status = 'failed';
-      initialResult.error = error instanceof Error ? error.message : 'Erreur inconnue';
-      onProgress?.(initialResult);
+    // Attendre entre les lots pour éviter de surcharger le navigateur
+    if (i + BATCH_SIZE < urls.length) {
+      await addDelay(DELAY_BETWEEN_BATCHES);
     }
   }
   
   return results;
 };
 
+/**
+ * Génère des données fictives quand l'accès réel est bloqué par CORS
+ */
 const generateMockImageResults = (url: string, pageIdStr: string, isCorsError: boolean = false): ImageResult[] => {
   const getRandomInt = (max: number): number => {
     let hash = 0;
@@ -192,6 +237,9 @@ const generateMockImageResults = (url: string, pageIdStr: string, isCorsError: b
   return results;
 };
 
+/**
+ * Ajoute un délai
+ */
 export const addDelay = async (ms: number): Promise<void> => {
   return new Promise(resolve => setTimeout(resolve, ms));
 };
